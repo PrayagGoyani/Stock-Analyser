@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 Stock Price Analyzer</h1>
+            <p class="subtitle">Analyze stock prices with moving averages and trends</p>
+        </header>
+
+        <div class="main-content">
+            <div class="input-section">
+                <form id="analyzeForm">
+                    <div class="form-group">
+                        <label for="symbol">Stock Symbol</label>
+                        <input 
+                            type="text" 
+                            id="symbol" 
+                            name="symbol" 
+                            placeholder="e.g., AAPL, TSLA, MSFT" 
+                            required
+                            maxlength="5"
+                            pattern="[A-Za-z]+"
+                        >
+                    </div>
+
+                    <div class="form-group">
+                        <label for="period">Time Period</label>
+                        <select id="period" name="period" required>
+                            <option value="1d">1 Day</option>
+                            <option value="5d">5 Days</option>
+                            <option value="1mo" selected>1 Month</option>
+                            <option value="3mo">3 Months</option>
+                            <option value="6mo">6 Months</option>
+                            <option value="1y">1 Year</option>
+                            <option value="2y">2 Years</option>
+                            <option value="5y">5 Years</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="window">Moving Average Window</label>
+                        <input 
+                            type="number" 
+                            id="window" 
+                            name="window" 
+                            value="5" 
+                            min="1" 
+                            max="50" 
+                            required
+                        >
+                        <small>Number of days for moving average calculation</small>
+                    </div>
+
+                    <button type="submit" class="btn-primary" id="analyzeBtn">
+                        <span class="btn-text">Analyze Stock</span>
+                        <span class="btn-loader" style="display: none;">⏳ Analyzing...</span>
+                    </button>
+                </form>
+            </div>
+
+            <div id="results" class="results-section" style="display: none;">
+                <div class="results-header">
+                    <h2 id="resultsTitle"></h2>
+                    <div class="trend-badge" id="trendBadge"></div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Latest Price</div>
+                        <div class="stat-value" id="latestPrice">$0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Min Price</div>
+                        <div class="stat-value" id="minPrice">$0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Max Price</div>
+                        <div class="stat-value" id="maxPrice">$0.00</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Average Price</div>
+                        <div class="stat-value" id="avgPrice">$0.00</div>
+                    </div>
+                </div>
+
+                <div class="trend-summary">
+                    <p id="trendText"></p>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="stockChart"></canvas>
+                </div>
+
+                <div class="plot-container">
+                    <img id="plotImage" alt="Stock Plot" style="display: none;">
+                </div>
+
+                <div class="actions">
+                    <button class="btn-secondary" id="downloadCsvBtn">Download CSV</button>
+                    <button class="btn-secondary" id="downloadPlotBtn">Download Plot</button>
+                </div>
+            </div>
+
+            <div id="error" class="error-message" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
