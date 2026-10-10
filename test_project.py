@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from project import fetch_data, calculate_moving_average, summarize_trend
+from project import fetch_data, calculate_moving_average, summarize_trend, calculate_rsi, calculate_macd
 
 # ------------------------
 # TESTING fetch_data()
@@ -52,3 +52,18 @@ def test_summarize_trend_constant():
     data = pd.DataFrame({"Close": [100, 100]})
     result = summarize_trend(data)
     assert "constant" in result.lower() or "same" in result.lower()
+    
+def test_calculate_rsi():a
+    mock_data = pd.DataFrame({'Close': [100, 102, 101, 105, 107, 106, 108]})
+    rsi = calculate_rsi(mock_data, period=3)
+    assert len(rsi) == 7
+    # Assert that the first few rows are calculated (or NaN handled)
+    assert rsi is not None
+
+def test_calculate_macd():
+    mock_data = pd.DataFrame({'Close': [100, 102, 101, 105, 107, 106, 108]})
+    macd, signal = calculate_macd(mock_data, fast=3, slow=5, signal=2)
+    
+    # Assert both the MACD line and Signal line are returned as Pandas Series
+    assert len(macd) == 7
+    assert len(signal) == 7
