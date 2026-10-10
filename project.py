@@ -62,25 +62,40 @@ def main():
             print(Fore.MAGENTA + "Thanks for using Stock Price Analyzer. Goodbye! 👋")
             break
 
-        symbol = user_input.upper()
-
-        if not symbol.isalpha() or len(symbol) > 5:
-            print(Fore.RED + "Oops! That doesn't look like a valid stock symbol. Please try again.")
-            continue
-
-        period = input(Fore.CYAN + "Choose a time period (e.g., 1mo, 3mo, 6mo, 1y): ").strip()
-        if period not in ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"]:
-            print(Fore.RED + "Invalid period. Please pick one from: 1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y.")
+    period = input(Fore.CYAN + "Choose a time period (e.g., 5d, 1mo, 3mo, 6mo, 1y): ").strip()
+        if period not in ["5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"]:
+            print(Fore.RED + "Invalid period. Please pick one from: 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y.")
             continue
 
         try:
             # Pad with 3mo for short timeframes to ensure MACD's 26-day EMA has enough data to converge
-            fetch_period = "3mo" if period in ["1d", "5d", "1mo"] else period
+            fetch_period = "3mo" if period in ["5d", "1mo"] else period
             
             data = fetch_data(symbol, fetch_period)
             if data.empty:
                 print(Fore.RED + "No data found. Maybe the symbol or period is incorrect. Try again!")
                 continue
+
+            window = input(Fore.CYAN + "Enter moving average window (e.g. 5): ").strip()
+            if not window.isdigit():
+                print(Fore.YELLOW + "No valid number entered. Defaulting to 5.")
+                window = 5
+            else:
+                window = int(window)
+
+            # Apply indicators to the FULL padded dataframe first
+            ma = calculate_moving_average(data, window)
+            data[f'{window}d_MA'] = ma
+            data['RSI'] = calculate_rsi(data)
+            macd, signal_line = calculate_macd(data)
+            data['MACD'] = macd
+            data['MACD_Signal'] = signal_line
+
+            # Slice the dataframe down to the exact period requested before displaying/saving
+            if period == "5d":
+                data = data.tail(5)
+            elif period == "1mo":
+                data = data.tail(21)  # Approx 21 trading days in a month
 
             window = input(Fore.CYAN + "Enter moving average window (e.g. 5): ").strip()
             if not window.isdigit():
