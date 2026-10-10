@@ -30,7 +30,10 @@ localhost provided by running app.py
 
 ## Features
 
-- Interactive price charts with moving averages
+- Relative Strength Index (RSI - 14 Period)
+- Moving Average Convergence Divergence (MACD - 12, 26, 9)
+- Intelligently fetches 1 month of background data for short timeframes (1d, 5d) so RSI/MACD mathematical calculations do not fail.
+- Uses thread-safe Object-Oriented Matplotlib (`FigureCanvasAgg`) to generate 3 stacked subplots in a single image without crashing the Flask server.
 - Stock statistics (min, max, average, latest price)
 - Trend analysis with percentage change
 - Download data as CSV
@@ -44,12 +47,16 @@ localhost provided by running app.py
 - pandas
 - matplotlib
 - colorama
+- numpy
+- pytest
 
 ## Project Structure
 
 ```
 ├── app.py              # Flask backend
 ├── project.py          # Core functions
+├── test_project.py     # Unit tests for core functions
+├── requirements.txt
 ├── templates/
 │   └── index.html     # Frontend
 └── static/
