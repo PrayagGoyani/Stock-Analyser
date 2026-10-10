@@ -34,13 +34,13 @@ def analyze():
         
         if not symbol or not symbol.isalpha() or len(symbol) > 5:
             return jsonify({'error': 'Invalid stock symbol.'}), 400
-        
-        valid_periods = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"]
+            
+        valid_periods = ["5d", "1mo", "3mo", "6mo", "1y", "2y", "5y"]
         if period not in valid_periods:
             return jsonify({'error': 'Invalid period selected.'}), 400
         
         # Pad short timeframes with "3mo" so MACD (26-day EMA) has enough data
-        fetch_period = "3mo" if period in ["1d", "5d", "1mo"] else period
+        fetch_period = "3mo" if period in ["5d", "1mo"] else period
         
         stock_data = fetch_data(symbol, fetch_period)
         if stock_data.empty:
@@ -54,6 +54,11 @@ def analyze():
         stock_data['MACD'] = macd
         stock_data['MACD_Signal'] = signal_line
         
+        # Slice the dataframe down to the requested timeframe
+        if period == "5d":
+            stock_data = stock_data.tail(5)
+        elif period == "1mo":
+            stock_data = stock_data.tail(21)  # Approx 21 trading days in a month
         # Slice the dataframe down to the requested timeframe
         if period == "1d":
             stock_data = stock_data.tail(1)
