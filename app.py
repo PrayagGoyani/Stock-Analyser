@@ -5,14 +5,14 @@ matplotlib.use('Agg')  # Use non-interactive backend
 import matplotlib.pyplot as plt
 import io
 import base64
-from project import fetch_data, calculate_moving_average, summarize_trend
+# Added calculate_rsi and calculate_macd to the import list
+from project import fetch_data, calculate_moving_average, summarize_trend, calculate_rsi, calculate_macd
 import os
 
 app = Flask(__name__)
 
 def clean_trend_summary(summary: str) -> str:
     """Remove colorama formatting from trend summary."""
-    # Remove ANSI color codes
     import re
     ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
     return ansi_escape.sub('', summary)
@@ -43,8 +43,14 @@ def analyze():
         if stock_data.empty:
             return jsonify({'error': 'No data found for this symbol and period. Please try again.'}), 404
         
-        # Calculate moving average
+        # Calculate moving average & Indicators
         ma = calculate_moving_average(stock_data, window)
+        stock_data[f'{window}d_MA'] = ma
+        
+        stock_data['RSI'] = calculate_rsi(stock_data)
+        macd, signal_line = calculate_macd(stock_data)
+        stock_data['MACD'] = macd
+        stock_data['MACD_Signal'] = signal_line
         
         # Get trend summary
         trend_summary = clean_trend_summary(summarize_trend(stock_data))
@@ -57,7 +63,10 @@ def analyze():
         # Prepare data for JSON response
         dates = [date.strftime('%Y-%m-%d') for date in stock_data.index]
         closing_prices = stock_data['Close'].tolist()
-        moving_avg = ma.fillna(0).tolist()  # Replace NaN with 0 for JSON serialization
+        moving_avg = ma.fillna(0).tolist()  # Replace NaN with 0
+        rsi_list = stock_data['RSI'].fillna(0).tolist()
+        macd_list = stock_data['MACD'].fillna(0).tolist()
+        macd_sig_list = stock_data['MACD_Signal'].fillna(0).tolist()
         
         # Statistics
         stats = {
@@ -68,15 +77,34 @@ def analyze():
             'change_percent': float(change)
         }
         
-        # Create plot
-        plt.figure(figsize=(12, 6))
-        plt.plot(stock_data.index, stock_data['Close'], label='Closing Price', linewidth=2, color='#2563eb')
-        plt.plot(stock_data.index, ma, label=f'{window}-Day Moving Average', linestyle='--', color='#f59e0b', linewidth=2)
-        plt.title(f"{symbol} Stock Price ({period})", fontsize=16, fontweight='bold')
-        plt.xlabel("Date", fontsize=12)
-        plt.ylabel("Price ($)", fontsize=12)
-        plt.legend(fontsize=11)
-        plt.grid(True, alpha=0.3)
+        # Create Stacked Plot
+        fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 12), sharex=True)
+        
+        # Ax1: Price and MA
+        ax1.plot(stock_data.index, stock_data['Close'], label='Closing Price', linewidth=2, color='#2563eb')
+        ax1.plot(stock_data.index, ma, label=f'{window}-Day Moving Average', linestyle='--', color='#f59e0b', linewidth=2)
+        ax1.set_title(f"{symbol} Stock Price & Indicators ({period})", fontsize=16, fontweight='bold')
+        ax1.set_ylabel("Price ($)", fontsize=12)
+        ax1.legend(fontsize=11, loc="upper left")
+        ax1.grid(True, alpha=0.3)
+
+        # Ax2: RSI
+        ax2.plot(stock_data.index, stock_data['RSI'], label='RSI (14)', color='purple', linewidth=1.5)
+        ax2.axhline(70, linestyle='--', alpha=0.5, color='red')
+        ax2.axhline(30, linestyle='--', alpha=0.5, color='green')
+        ax2.set_ylabel("RSI", fontsize=12)
+        ax2.legend(fontsize=11, loc="upper left")
+        ax2.grid(True, alpha=0.3)
+
+        # Ax3: MACD
+        ax3.plot(stock_data.index, stock_data['MACD'], label='MACD', color='black', linewidth=1.5)
+        ax3.plot(stock_data.index, stock_data['MACD_Signal'], label='Signal Line', color='red', linewidth=1.5)
+        ax3.bar(stock_data.index, stock_data['MACD'] - stock_data['MACD_Signal'], color='gray', alpha=0.3)
+        ax3.set_ylabel("MACD", fontsize=12)
+        ax3.set_xlabel("Date", fontsize=12)
+        ax3.legend(fontsize=11, loc="upper left")
+        ax3.grid(True, alpha=0.3)
+        
         plt.tight_layout()
         
         # Convert plot to base64
@@ -86,7 +114,7 @@ def analyze():
         plot_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
         plt.close()
         
-        # Prepare CSV data
+        # Prepare CSV data (Automatically includes RSI and MACD now!)
         csv_data = stock_data.to_csv()
         
         return jsonify({
@@ -98,6 +126,9 @@ def analyze():
             'dates': dates,
             'closing_prices': closing_prices,
             'moving_avg': moving_avg,
+            'rsi': rsi_list,
+            'macd': macd_list,
+            'macd_signal': macd_sig_list,
             'plot': plot_base64,
             'csv_data': csv_data
         })
@@ -130,4 +161,3 @@ def download_csv():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
