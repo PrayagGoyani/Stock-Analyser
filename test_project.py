@@ -53,7 +53,7 @@ def test_summarize_trend_constant():
     result = summarize_trend(data)
     assert "constant" in result.lower() or "same" in result.lower()
     
-def test_calculate_rsi():a
+def test_calculate_rsi():
     mock_data = pd.DataFrame({'Close': [100, 102, 101, 105, 107, 106, 108]})
     rsi = calculate_rsi(mock_data, period=3)
     assert len(rsi) == 7
