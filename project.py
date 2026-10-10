@@ -7,35 +7,33 @@ from colorama import init, Fore, Style
 init(autoreset=True)
 
 def fetch_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
+    """
+    Fetch historical stock data for a given symbol and period.
+    """
     ticker = yf.Ticker(symbol)
-    
-    # If the user asks for a very short timeframe, fetch 1 month to ensure math works
-    fetch_period = period
-    if period in ["1d", "5d"]:
-        fetch_period = "1mo" 
-        
-    data = ticker.history(period=fetch_period)
-    # Then at the very end of your calculations, slice it back if needed:
-    if period == "1d":
-        data = data.tail(1) # Keep only the last day
-    elif period == "5d":
-        data = data.tail(5) # Keep only the last 5 days
-        
-    return data
+    return ticker.history(period=period)
+
 def calculate_moving_average(data: pd.DataFrame, window: int = 5) -> pd.Series:
     """
     Calculate the moving average of the closing prices.
     """
     return data['Close'].rolling(window=window).mean()
 
-def calculate_rsi(data, period=14):
+def calculate_rsi(data: pd.DataFrame, period: int = 14) -> pd.Series:
+    """
+    Calculate the Relative Strength Index (RSI).
+    """
     delta = data['Close'].diff()
-    gain = delta.clip(lower=0).ewm(alpha=1/period, adjust=False).mean()
-    loss = (-delta.clip(upper=0)).ewm(alpha=1/period, adjust=False).mean()
+    # min_periods=period ensures we don't output meaningless values during the warm-up period
+    gain = delta.clip(lower=0).ewm(alpha=1/period, adjust=False, min_periods=period).mean()
+    loss = (-delta.clip(upper=0)).ewm(alpha=1/period, adjust=False, min_periods=period).mean()
     rs = gain / loss
     return 100 - (100 / (1 + rs))
 
-def calculate_macd(data, fast=12, slow=26, signal=9):
+def calculate_macd(data: pd.DataFrame, fast: int = 12, slow: int = 26, signal: int = 9):
+    """
+    Calculate the MACD line and the Signal line.
+    """
     ema_fast = data['Close'].ewm(span=fast, adjust=False).mean()
     ema_slow = data['Close'].ewm(span=slow, adjust=False).mean()
     macd = ema_fast - ema_slow
@@ -76,22 +74,22 @@ def main():
             continue
 
         try:
-            data = fetch_data(symbol, period)
+            # Pad with 3mo for short timeframes to ensure MACD's 26-day EMA has enough data to converge
+            fetch_period = "3mo" if period in ["1d", "5d", "1mo"] else period
+            
+            data = fetch_data(symbol, fetch_period)
             if data.empty:
                 print(Fore.RED + "No data found. Maybe the symbol or period is incorrect. Try again!")
                 continue
 
-            print(Fore.YELLOW + f"\nLatest closing price for {symbol}: {data['Close'].iloc[-1]:.2f}")
-            print(summarize_trend(data))
-
-            window = input(Fore.CYAN + "Enter moving average window (e.g.5): ").strip()
+            window = input(Fore.CYAN + "Enter moving average window (e.g. 5): ").strip()
             if not window.isdigit():
                 print(Fore.YELLOW + "No valid number entered. Defaulting to 5.")
                 window = 5
             else:
                 window = int(window)
 
-            # Apply indicators to the dataframe
+            # Apply indicators to the FULL padded dataframe first
             ma = calculate_moving_average(data, window)
             data[f'{window}d_MA'] = ma
             data['RSI'] = calculate_rsi(data)
@@ -99,7 +97,17 @@ def main():
             data['MACD'] = macd
             data['MACD_Signal'] = signal_line
 
-            # Show key statistics
+            # Slice the dataframe down to the exact period requested before displaying/saving
+            if period == "1d":
+                data = data.tail(1)
+            elif period == "5d":
+                data = data.tail(5)
+            elif period == "1mo":
+                data = data.tail(21)  # Approx 21 trading days in a month
+
+            print(Fore.YELLOW + f"\nLatest closing price for {symbol}: {data['Close'].iloc[-1]:.2f}")
+            print(summarize_trend(data))
+
             print(Fore.BLUE + f"\nQuick Stats:")
             print(Fore.BLUE + f"Min Closing Price: {data['Close'].min():.2f}")
             print(Fore.BLUE + f"Max Closing Price: {data['Close'].max():.2f}")
@@ -113,15 +121,13 @@ def main():
             # Create and save stacked subplots
             fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
             
-            # Plot 1: Price
             ax1.plot(data.index, data['Close'], label='Closing Price', linewidth=2)
-            ax1.plot(data.index, ma, label=f'{window}-Day Moving Average', linestyle='--', color='orange')
+            ax1.plot(data.index, data[f'{window}d_MA'], label=f'{window}-Day MA', linestyle='--', color='orange')
             ax1.set_title(f"{symbol} Stock Price & Indicators ({period})")
             ax1.set_ylabel("Price")
             ax1.legend(loc="upper left")
             ax1.grid(True)
 
-            # Plot 2: RSI
             ax2.plot(data.index, data['RSI'], label='RSI (14)', color='purple')
             ax2.axhline(70, linestyle='--', alpha=0.5, color='red')
             ax2.axhline(30, linestyle='--', alpha=0.5, color='green')
@@ -129,7 +135,6 @@ def main():
             ax2.legend(loc="upper left")
             ax2.grid(True)
 
-            # Plot 3: MACD
             ax3.plot(data.index, data['MACD'], label='MACD', color='black')
             ax3.plot(data.index, data['MACD_Signal'], label='Signal', color='red')
             ax3.bar(data.index, data['MACD'] - data['MACD_Signal'], color='gray', alpha=0.3)
