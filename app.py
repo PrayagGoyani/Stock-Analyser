@@ -39,7 +39,6 @@ def analyze():
         if period not in valid_periods:
             return jsonify({'error': 'Invalid period selected.'}), 400
         
-        # --- FIX 1: Data Padding for Short Timeframes ---
         # RSI needs 14 days, MACD needs 26. If the user asks for 1d or 5d, 
         # we silently fetch 1mo of data to ensure the math calculates correctly.
         fetch_period = "1mo" if period in ["1d", "5d"] else period
@@ -68,8 +67,6 @@ def analyze():
         start = stock_data['Close'].iloc[0]
         end = stock_data['Close'].iloc[-1]
         change = ((end - start) / start) * 100
-        
-        # --- FIX 2: Handling NaN for the Frontend JSON ---
         # Replace Pandas NaN with Python None (which becomes JSON null)
         # This prevents JavaScript charts from crashing or plotting a zero value.
         dates = [date.strftime('%Y-%m-%d') for date in stock_data.index]
@@ -87,7 +84,6 @@ def analyze():
             'change_percent': float(change)
         }
         
-        # --- FIX 3: Thread-Safe Matplotlib Rendering ---
         # Instead of global plt, we create a localized Figure object
         fig = Figure(figsize=(12, 12))
         ax1, ax2, ax3 = fig.subplots(3, 1, sharex=True)
