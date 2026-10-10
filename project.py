@@ -7,12 +7,21 @@ from colorama import init, Fore, Style
 init(autoreset=True)
 
 def fetch_data(symbol: str, period: str = "1mo") -> pd.DataFrame:
-    """
-    Fetch historical stock data for a given symbol and period.
-    """
     ticker = yf.Ticker(symbol)
-    return ticker.history(period=period)
-
+    
+    # If the user asks for a very short timeframe, fetch 1 month to ensure math works
+    fetch_period = period
+    if period in ["1d", "5d"]:
+        fetch_period = "1mo" 
+        
+    data = ticker.history(period=fetch_period)
+    # Then at the very end of your calculations, slice it back if needed:
+    if period == "1d":
+        data = data.tail(1) # Keep only the last day
+    elif period == "5d":
+        data = data.tail(5) # Keep only the last 5 days
+        
+    return data
 def calculate_moving_average(data: pd.DataFrame, window: int = 5) -> pd.Series:
     """
     Calculate the moving average of the closing prices.
